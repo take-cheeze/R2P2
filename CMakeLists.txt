@@ -35,11 +35,15 @@ if(PICORUBY_DEBUG)
   )
 else()
   add_compile_definitions(NDEBUG=1)
+  add_compile_options(
+    -O2
+  )
 endif()
 
 file(GLOB SOURCE_FILES CONFIGURE_DEPENDS
   src/*.c
   ${CMAKE_SOURCE_DIR}/lib/picoruby/mrbgems/*/ports/rp2040/*.c
+  ${CMAKE_SOURCE_DIR}/lib/picoruby/mrbgems/*/ports/common/*.c
 )
 if(USE_WIFI)
   add_compile_definitions(USE_WIFI=1)
@@ -61,11 +65,10 @@ add_executable(${PROJECT_NAME}
   ${SOURCE_FILES}
 )
 
+pico_enable_stdio_usb(${PROJECT_NAME} 0)
 if(PICORUBY_DEBUG)
-  pico_enable_stdio_usb(${PROJECT_NAME} 0)
   pico_enable_stdio_uart(${PROJECT_NAME} 1)
 else()
-  pico_enable_stdio_usb(${PROJECT_NAME} 0)
   pico_enable_stdio_uart(${PROJECT_NAME} 0)
 endif()
 
@@ -90,7 +93,10 @@ add_dependencies(${PROJECT_NAME}
 )
 foreach(rb ${RUBY_FILES})
   add_custom_target(${rb}
-    COMMAND ${PICORBC} -B${rb} -o${CMAKE_SOURCE_DIR}/${BUILD_DIR}/mrb/${rb}.c ${CMAKE_SOURCE_DIR}/mrblib/${rb}.rb
+    COMMAND
+      mkdir -p ${CMAKE_SOURCE_DIR}/${BUILD_DIR}/mrb &&
+      ${PICORBC} -B${rb} -o${CMAKE_SOURCE_DIR}/${BUILD_DIR}/mrb/${rb}.c ${CMAKE_SOURCE_DIR}/mrblib/${rb}.rb
+    DEPENDS ${CMAKE_SOURCE_DIR}/mrblib/${rb}.rb
   )
 endforeach(rb)
 
@@ -102,9 +108,12 @@ pico_generate_pio_header(${PROJECT_NAME}
   ${CMAKE_SOURCE_DIR}/lib/picoruby/mrbgems/picoruby-psg/ports/rp2040/psg_drv_mcp4922_pio.pio
 )
 
+target_link_options(${PROJECT_NAME} PRIVATE -Wl,--gc-sections)
+
 target_link_libraries(${PROJECT_NAME} PRIVATE
   pico_stdlib
-  # pico_stdio_usb
+  pico_stdio
+  pico_stdio_uart
   pico_bootsel_via_double_reset
   tinyusb_device
   tinyusb_board
@@ -120,6 +129,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
   pico_multicore  # for RP2040
   hardware_claim
   hardware_pio
+  hardware_dma
   mruby
 )
 
@@ -177,6 +187,7 @@ target_include_directories(${PROJECT_NAME} PRIVATE
 
   ${CMAKE_CURRENT_LIST_DIR}
   ${PICO_SDK_PATH}/src/rp2_common/pico_stdio_usb/include
+  ${PICO_SDK_PATH}/src/rp2_common/hardware_dma/include
   ${CMAKE_SOURCE_DIR}/lib/picoruby/mrbgems/picoruby-machine/include
   ${CMAKE_SOURCE_DIR}/lib/picoruby/mrbgems/picoruby-filesystem-fat/lib/ff14b/source
   ${CMAKE_SOURCE_DIR}/lib/picoruby/build/${MRUBY_CONFIG}/mrbgems

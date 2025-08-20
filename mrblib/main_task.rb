@@ -2,23 +2,11 @@ require "machine"
 require "watchdog"
 Watchdog.disable
 require "shell"
+require "irq"
 STDOUT = IO.new
 STDIN = IO.new
 
-# TODO: Fix mruby-time
-if RUBY_ENGINE == "mruby"
-  class Time
-    def self.now(in: nil)
-      ts = Machine.get_hwclock
-      tv_sec = ts[0]
-      tv_nsec = ts[1].to_f / 1_000_000_000
-      Time.at(tv_sec + tv_nsec)
-    end
-  end
-  Machine.set_hwclock(0, 0)
-else
-  Time.set_hwclock(Time.at 0)
-end
+Machine.set_hwclock(0, 0)
 
 begin
   sleep 1
